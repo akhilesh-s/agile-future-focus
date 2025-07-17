@@ -14,7 +14,8 @@ import {
   CheckSquare,
   Users,
   Download,
-  Share
+  Share,
+  ThumbsUp
 } from "lucide-react";
 import supabase from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,7 @@ interface RetroData {
       id: number;
       content: string;
       created_at: string;
+      upvotes?: number;
     }>;
     action_items?: Array<{
       id: number;
@@ -92,7 +94,7 @@ const RetroResults = () => {
               action_items: actionItems || []
             };
           } else {
-            // Fetch regular items
+            // Fetch regular items with upvote counts
             const { data: items, error: itemsError } = await supabase
               .from('items')
               .select('*')
@@ -101,9 +103,24 @@ const RetroResults = () => {
 
             if (itemsError) throw itemsError;
 
+            // Get upvote counts for each item
+            const itemsWithUpvotes = await Promise.all(
+              (items || []).map(async (item) => {
+                const { data: upvoteData, error: upvoteError } = await supabase
+                  .from('upvotes')
+                  .select('*')
+                  .eq('item_id', item.id);
+
+                return {
+                  ...item,
+                  upvotes: upvoteData?.length || 0
+                };
+              })
+            );
+
             return {
               ...section,
-              items: items || []
+              items: itemsWithUpvotes
             };
           }
         })
@@ -354,7 +371,15 @@ const RetroResults = () => {
                     {section.items && section.items.length > 0 ? (
                       section.items.map((item, index) => (
                         <div key={item.id} className="p-4 rounded-lg bg-muted/20 border border-border/10">
-                          <p className="mb-2">{item.content}</p>
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <p className="flex-1">{item.content}</p>
+                            {item.upvotes !== undefined && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground bg-muted/30 px-2 py-1 rounded">
+                                <ThumbsUp className="h-3 w-3" />
+                                <span>{item.upvotes}</span>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             <span>{formatDate(item.created_at)}</span>

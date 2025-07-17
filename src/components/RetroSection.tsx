@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X } from "lucide-react";
+import { Plus, X, ThumbsUp } from "lucide-react";
 import supabase from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -11,6 +11,8 @@ interface RetroItem {
   id: string;
   text: string;
   author?: string;
+  upvotes?: number;
+  hasUserUpvoted?: boolean;
 }
 
 interface RetroSectionProps {
@@ -73,19 +75,38 @@ export function RetroSection({
 
       setSectionId(section.id);
 
-      // Load items for this section
+      // Load items for this section with upvote counts
       const { data: itemsData, error: itemsError } = await supabase
         .from('items')
-        .select('*')
+        .select(`
+          *,
+          upvotes:upvotes(count)
+        `)
         .eq('section_id', section.id)
         .order('created_at', { ascending: true });
 
       if (itemsError) throw itemsError;
 
-      setItems(itemsData.map(item => ({
-        id: item.id.toString(),
-        text: item.content || ''
-      })));
+      // Get detailed upvotes for each item to check if user has upvoted
+      const itemsWithUpvotes = await Promise.all(
+        (itemsData || []).map(async (item) => {
+          const { data: upvoteData, error: upvoteError } = await supabase
+            .from('upvotes')
+            .select('*')
+            .eq('item_id', item.id);
+
+          const upvoteCount = upvoteData?.length || 0;
+          
+          return {
+            id: item.id.toString(),
+            text: item.content || '',
+            upvotes: upvoteCount,
+            hasUserUpvoted: false // We'll implement user tracking later if needed
+          };
+        })
+      );
+
+      setItems(itemsWithUpvotes);
     } catch (error) {
       console.error('Error initializing section:', error);
       toast({
@@ -107,7 +128,12 @@ export function RetroSection({
 
         if (error) throw error;
 
-        setItems([...items, { id: data.id.toString(), text: data.content || '' }]);
+        setItems([...items, { 
+          id: data.id.toString(), 
+          text: data.content || '', 
+          upvotes: 0,
+          hasUserUpvoted: false
+        }]);
         setNewItem("");
       } catch (error) {
         console.error('Error adding item:', error);
@@ -146,6 +172,61 @@ export function RetroSection({
     }
   };
 
+  const toggleUpvote = async (itemId: string) => {
+    try {
+      const item = items.find(i => i.id === itemId);
+      if (!item) return;
+
+      if (item.hasUserUpvoted) {
+        // Remove upvote
+        const { data: existingUpvotes, error: fetchError } = await supabase
+          .from('upvotes')
+          .select('*')
+          .eq('item_id', parseInt(itemId))
+          .limit(1);
+
+        if (fetchError) throw fetchError;
+
+        if (existingUpvotes && existingUpvotes.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('upvotes')
+            .delete()
+            .eq('id', existingUpvotes[0].id);
+
+          if (deleteError) throw deleteError;
+        }
+
+        // Update local state
+        setItems(items.map(i => 
+          i.id === itemId 
+            ? { ...i, upvotes: Math.max(0, (i.upvotes || 0) - 1), hasUserUpvoted: false }
+            : i
+        ));
+      } else {
+        // Add upvote
+        const { error: insertError } = await supabase
+          .from('upvotes')
+          .insert([{ item_id: parseInt(itemId) }]);
+
+        if (insertError) throw insertError;
+
+        // Update local state
+        setItems(items.map(i => 
+          i.id === itemId 
+            ? { ...i, upvotes: (i.upvotes || 0) + 1, hasUserUpvoted: true }
+            : i
+        ));
+      }
+    } catch (error) {
+      console.error('Error toggling upvote:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update upvote",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className={`${bgClass} border-border/20 backdrop-blur-sm hover:${glowClass} transition-all duration-300 group`}>
       <CardHeader className="pb-4">
@@ -173,14 +254,29 @@ export function RetroSection({
             >
               <div className="flex justify-between items-start gap-2">
                 <p className="text-sm text-foreground flex-1">{item.text}</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeItem(item.id)}
-                  className="opacity-0 group-hover/item:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleUpvote(item.id)}
+                    className={`h-7 px-2 gap-1 text-xs transition-colors ${
+                      item.hasUserUpvoted 
+                        ? 'bg-primary/20 text-primary hover:bg-primary/30' 
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <ThumbsUp className={`h-3 w-3 ${item.hasUserUpvoted ? 'fill-current' : ''}`} />
+                    <span>{item.upvotes || 0}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeItem(item.id)}
+                    className="opacity-0 group-hover/item:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
