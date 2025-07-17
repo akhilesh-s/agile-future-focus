@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import supabase from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { updateMetaTags, getRetroResultsMetaData } from "@/utils/meta";
 
 interface RetroData {
   id: number;
@@ -126,10 +127,18 @@ const RetroResults = () => {
         })
       );
 
-      setRetroData({
+      const finalRetroData = {
         ...retro,
         sections: sectionsWithData
-      });
+      };
+      
+      setRetroData(finalRetroData);
+      
+      // Update meta tags for social sharing
+      if (retro && id) {
+        const metaData = getRetroResultsMetaData(retro.name || 'Retrospective', id);
+        updateMetaTags(metaData);
+      }
     } catch (error) {
       console.error('Error fetching retro results:', error);
       toast({

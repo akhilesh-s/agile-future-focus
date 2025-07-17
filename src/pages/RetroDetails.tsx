@@ -6,6 +6,7 @@ import supabase from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RetroSection } from "@/components/RetroSection";
 import { ActionItemsSection } from "@/components/ActionItemsSection";
+import { updateMetaTags, getRetroMetaData } from "@/utils/meta";
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -36,6 +37,12 @@ const RetroDetails = () => {
 
       if (error) throw error;
       setRetro(data);
+      
+      // Update meta tags for social sharing
+      if (data && id) {
+        const metaData = getRetroMetaData(data.name || 'Retrospective', id);
+        updateMetaTags(metaData);
+      }
     } catch (error) {
       console.error('Error fetching retro:', error);
       toast({
