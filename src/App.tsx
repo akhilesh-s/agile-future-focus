@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import CreateRetro from "./pages/CreateRetro";
 import RetroDetails from "./pages/RetroDetails";
+import RetroResults from "./pages/RetroResults";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<CreateRetro />} />
           <Route path="/retro/:id" element={<RetroDetails />} />
+          <Route path="/retro/:id/results" element={<RetroResults />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

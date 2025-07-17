@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Calendar, Clock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import supabase from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RetroSection } from "@/components/RetroSection";
 import { ActionItemsSection } from "@/components/ActionItemsSection";
@@ -118,6 +118,14 @@ const RetroDetails = () => {
             Reflect, learn, and improve together. Use this structured template to facilitate 
             meaningful team discussions and drive continuous improvement.
           </p>
+          
+          <Button
+            onClick={() => navigate(`/retro/${id}/results`)}
+            variant="outline"
+            className="border-border/20 hover:bg-muted/50 mt-4"
+          >
+            View Results Summary
+          </Button>
         </div>
 
         {/* Retrospective Sections Grid */}
