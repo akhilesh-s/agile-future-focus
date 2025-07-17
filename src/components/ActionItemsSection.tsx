@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CheckSquare, Plus, X, User, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ActionItem {
   id: string;
@@ -15,31 +17,132 @@ interface ActionItem {
   dueDate?: string;
 }
 
-export function ActionItemsSection() {
+interface ActionItemsSectionProps {
+  retroId?: number;
+}
+
+export function ActionItemsSection({ retroId }: ActionItemsSectionProps) {
   const [items, setItems] = useState<ActionItem[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [sectionId, setSectionId] = useState<number | null>(null);
   const [newItem, setNewItem] = useState({
     description: "",
     owner: "",
     priority: "Medium" as const,
     dueDate: ""
   });
+  const { toast } = useToast();
 
-  const addItem = () => {
-    if (newItem.description.trim() && newItem.owner.trim()) {
-      setItems([...items, {
-        id: Date.now().toString(),
-        ...newItem,
-        description: newItem.description.trim(),
-        owner: newItem.owner.trim()
-      }]);
-      setNewItem({ description: "", owner: "", priority: "Medium", dueDate: "" });
-      setIsAdding(false);
+  useEffect(() => {
+    if (retroId) {
+      initializeActionItemsSection();
+    }
+  }, [retroId]);
+
+  const initializeActionItemsSection = async () => {
+    try {
+      // Get or create action items section
+      let { data: section, error: sectionError } = await supabase
+        .from('sections')
+        .select('*')
+        .eq('retro_id', retroId)
+        .eq('name', 'action_items')
+        .single();
+
+      if (sectionError && sectionError.code === 'PGRST116') {
+        // Section doesn't exist, create it
+        const { data: newSection, error: createError } = await supabase
+          .from('sections')
+          .insert([{ retro_id: retroId, name: 'action_items' }])
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        section = newSection;
+      } else if (sectionError) {
+        throw sectionError;
+      }
+
+      setSectionId(section.id);
+
+      // Load action items for this section
+      const { data: actionItems, error: itemsError } = await supabase
+        .from('action_items')
+        .select('*')
+        .eq('section_id', section.id)
+        .order('created_at', { ascending: true });
+
+      if (itemsError) throw itemsError;
+
+      setItems(actionItems.map(item => ({
+        id: item.id.toString(),
+        description: item.description || '',
+        owner: item.assigned_owner || '',
+        priority: (item.priority as any) || 'Medium'
+      })));
+    } catch (error) {
+      console.error('Error initializing action items section:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load action items",
+        variant: "destructive",
+      });
     }
   };
 
-  const removeItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const addItem = async () => {
+    if (newItem.description.trim() && newItem.owner.trim() && sectionId) {
+      try {
+        const { data, error } = await supabase
+          .from('action_items')
+          .insert([{
+            section_id: sectionId,
+            description: newItem.description.trim(),
+            assigned_owner: newItem.owner.trim(),
+            priority: newItem.priority
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setItems([...items, {
+          id: data.id.toString(),
+          description: data.description || '',
+          owner: data.assigned_owner || '',
+          priority: (data.priority as any) || 'Medium'
+        }]);
+        setNewItem({ description: "", owner: "", priority: "Medium", dueDate: "" });
+        setIsAdding(false);
+      } catch (error) {
+        console.error('Error adding action item:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add action item",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const removeItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('action_items')
+        .delete()
+        .eq('id', parseInt(id));
+
+      if (error) throw error;
+
+      setItems(items.filter(item => item.id !== id));
+    } catch (error) {
+      console.error('Error removing action item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove action item",
+        variant: "destructive",
+      });
+    }
   };
 
   const getPriorityColor = (priority: string) => {

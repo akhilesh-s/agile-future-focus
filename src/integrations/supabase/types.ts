@@ -14,7 +14,143 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      action_items: {
+        Row: {
+          assigned_owner: string | null
+          created_at: string
+          description: string | null
+          id: number
+          priority: string | null
+          section_id: number | null
+        }
+        Insert: {
+          assigned_owner?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          priority?: string | null
+          section_id?: number | null
+        }
+        Update: {
+          assigned_owner?: string | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          priority?: string | null
+          section_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      items: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: number
+          section_id: number | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: number
+          section_id?: number | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: number
+          section_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retro: {
+        Row: {
+          created_at: string
+          id: number
+          name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          name?: string | null
+        }
+        Relationships: []
+      }
+      sections: {
+        Row: {
+          created_at: string
+          id: number
+          name: string | null
+          retro_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          name?: string | null
+          retro_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          name?: string | null
+          retro_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sections_retro_id_fkey"
+            columns: ["retro_id"]
+            isOneToOne: false
+            referencedRelation: "retro"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      upvotes: {
+        Row: {
+          created_at: string
+          id: number
+          item_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          item_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          item_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upvotes_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
