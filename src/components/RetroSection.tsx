@@ -148,14 +148,28 @@ export function RetroSection({
 
   const removeItem = async (id: string) => {
     try {
-      const { error } = await supabase
+      // First delete all upvotes associated with this item
+      const { error: upvotesError } = await supabase
+        .from('upvotes')
+        .delete()
+        .eq('item_id', parseInt(id));
+
+      if (upvotesError) throw upvotesError;
+
+      // Then delete the item itself
+      const { error: itemError } = await supabase
         .from('items')
         .delete()
         .eq('id', parseInt(id));
 
-      if (error) throw error;
+      if (itemError) throw itemError;
 
       setItems(items.filter(item => item.id !== id));
+      
+      toast({
+        title: "Success",
+        description: "Item removed successfully",
+      });
     } catch (error) {
       console.error('Error removing item:', error);
       toast({
